@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+
+set(LEAST_SQUARE_APPROXIMATION_LIB_NAME least_square_approximation)
+
+add_library(${LEAST_SQUARE_APPROXIMATION_LIB_NAME} INTERFACE)
+target_include_directories(${LEAST_SQUARE_APPROXIMATION_LIB_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
