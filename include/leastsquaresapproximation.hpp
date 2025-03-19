@@ -4,17 +4,20 @@
 #include "linearsystemsolver.hpp"
 
 
-class LeastSquareApproximation
+namespace lsa
+{
+	
+class Approximator
 {
 
 public:
-    LeastSquareApproximation() noexcept = default;
-    ~LeastSquareApproximation() noexcept = default;
+    Approximator() noexcept = default;
+    ~Approximator() noexcept = default;
 
-    LeastSquareApproximation(const LeastSquareApproximation &) = delete;
-    LeastSquareApproximation(LeastSquareApproximation &&) = delete;
-    LeastSquareApproximation &operator=(const LeastSquareApproximation &) = delete;
-    LeastSquareApproximation &operator=(LeastSquareApproximation &&) = delete;
+    Approximator(const Approximator &) = delete;
+    Approximator(Approximator &&) = delete;
+    Approximator &operator=(const Approximator &) = delete;
+    Approximator &operator=(Approximator &&) = delete;
 
     [[nodiscard]] std::array<double, 2ull> exponential(std::span<double> x, std::span<double> y);
     [[nodiscard]] std::array<double, 2ull> linear(std::span<double> x, std::span<double> y);
@@ -23,7 +26,7 @@ public:
 
 };
 
-std::array<double, 2ull> LeastSquareApproximation::exponential(std::span<double> x, std::span<double> y)
+std::array<double, 2ull> Approximator::exponential(std::span<double> x, std::span<double> y)
 {
     std::ranges::transform(y, y.begin(), [](double value) -> double {
         return std::log(value);
@@ -32,13 +35,13 @@ std::array<double, 2ull> LeastSquareApproximation::exponential(std::span<double>
     return std::array<double, 2>({ std::exp(result[0]), result[1] });
 }
 
-std::array<double, 2ull> LeastSquareApproximation::linear(std::span<double> x, std::span<double> y)
+std::array<double, 2ull> Approximator::linear(std::span<double> x, std::span<double> y)
 {
     return polynomial<2ull>(x, y);
 }
 
 template<const std::size_t N>
-std::array<double, N> LeastSquareApproximation::polynomial(std::span<double> x, std::span<double> y)
+std::array<double, N> Approximator::polynomial(std::span<double> x, std::span<double> y)
 {
     Matrix::SquareMatrix<double, N> A;
     Matrix::Matrix<double, N, 1> B;
@@ -57,4 +60,6 @@ std::array<double, N> LeastSquareApproximation::polynomial(std::span<double> x, 
 
     LinearSystemSolver solver;
     return solver(A, B).column(0);
+}
+
 }

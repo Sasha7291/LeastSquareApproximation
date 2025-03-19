@@ -3,6 +3,9 @@
 #include <squarematrix.hpp>
 
 
+namespace lsa
+{
+	
 class LinearSystemSolverException : std::runtime_error
 {
 public:
@@ -39,4 +42,6 @@ Matrix::Matrix<T, N, 1> LinearSystemSolver::operator()(
         throw LinearSystemSolverException("det(A) == 0, A is irreversible");
 
     return A.inverted().toMatrix() * B;
+}
+	
 }
