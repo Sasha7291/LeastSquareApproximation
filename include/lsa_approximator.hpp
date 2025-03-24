@@ -5,6 +5,9 @@
 #include <numeric>
 #include <vector>
 
+#include <QDebug>
+#include <QVector>
+
 
 namespace lsa
 {
@@ -42,16 +45,15 @@ private:
 
 Result<2> Approximator::exponential(Keys x, Values y) const noexcept
 {
-	ResultValues tempY;
-	tempY.reserve(y.size());
-    std::ranges::transform(y, tempY.begin(), [](double value) -> double {
-        return std::log(value);
+    auto minValue = *std::ranges::min_element(y);
+    ResultValues tempY(y.size());
+    std::ranges::transform(y, tempY.begin(), [minValue](double value) -> double {
+        return std::log(value - minValue + 0.001);
     });
-    auto coeffs = linear(x, tempY).first;
-	auto result = approximateValues(coeffs, x);
+    auto [coeffs, result] = linear(x, tempY);
 	coeffs[0] = std::exp(coeffs[0]);
-	std::ranges::transform(result, result.begin(), [](double value) -> double {
-		return std::exp(value);
+    std::ranges::transform(result, result.begin(), [minValue](double value) -> double {
+        return std::exp(value) + minValue - 0.001;
 	});
 	
     return std::make_pair(coeffs, result);
@@ -80,18 +82,15 @@ Result<N> Approximator::polynomial(Keys x, Values y) const noexcept
         });
     }
 
-    LinearSystemSolver solver;
-    return std::make_pair(
-		solver(A, B).column(0),
-        approximateValues(solver(A, B).column(0), x)
-	);
+    auto result = LinearSystemSolver()(A, B).column(0);
+    return std::make_pair(result, approximateValues(result, x));
 }
 
 template<const std::size_t N>
 [[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients<N> &coeffs, Keys x) const noexcept
 {
-	ResultValues r;
-	r.reserve(x.size());
+    ResultValues r;
+    r.reserve(x.size());
 
     for (auto i = 0ull; i < x.size(); ++i)
     {
