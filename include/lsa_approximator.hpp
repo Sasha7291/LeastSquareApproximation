@@ -1,12 +1,9 @@
 #pragma once
 
-#include "lsa_linearsystemsolver.hpp"
+#include "lsa_solver.hpp"
 
 #include <numeric>
 #include <vector>
-
-#include <QDebug>
-#include <QVector>
 
 
 namespace lsa
@@ -14,11 +11,9 @@ namespace lsa
 
 using Keys = std::span<const double>;
 using Values = std::span<const double>;
-template<const std::size_t N>
-using Coefficients = std::array<double, N>;
+using Coefficients = std::vector<double>;
 using ResultValues = std::vector<double>;
-template<const std::size_t N>
-using Result = std::pair<Coefficients<N>, ResultValues>;
+using Result = std::pair<Coefficients, ResultValues>;
 
 class Approximator
 {
@@ -32,18 +27,16 @@ public:
     Approximator &operator=(const Approximator &) = delete;
     Approximator &operator=(Approximator &&) = delete;
 
-    [[nodiscard]] Result<2> exponential(Keys x, Values y) const noexcept;
-    [[nodiscard]] Result<2> linear(Keys x, Values y) const noexcept;
-    template<const std::size_t N>
-    [[nodiscard]] Result<N> polynomial(Keys x, Values y) const noexcept;
+    [[nodiscard]] Result exponential(Keys x, Values y) const noexcept;
+    [[nodiscard]] Result linear(Keys x, Values y) const noexcept;
+    [[nodiscard]] Result polynomial(Keys x, Values y, const std::size_t N) const noexcept;
 	
 private:
-    template<const std::size_t N>
-	[[nodiscard]] ResultValues approximateValues(const Coefficients<N> &coeffs, Keys x) const noexcept;
+    [[nodiscard]] ResultValues approximateValues(const Coefficients &coeffs, Keys x) const noexcept;
 
 };
 
-Result<2> Approximator::exponential(Keys x, Values y) const noexcept
+Result Approximator::exponential(Keys x, Values y) const noexcept
 {
     auto minValue = *std::ranges::min_element(y);
     ResultValues tempY(y.size());
@@ -59,16 +52,15 @@ Result<2> Approximator::exponential(Keys x, Values y) const noexcept
     return std::make_pair(coeffs, result);
 }
 
-Result<2> Approximator::linear(Keys x, Values y) const noexcept
+Result Approximator::linear(Keys x, Values y) const noexcept
 {
-    return polynomial<2ull>(x, y);
+    return polynomial(x, y, 2ull);
 }
 
-template<const std::size_t N>
-Result<N> Approximator::polynomial(Keys x, Values y) const noexcept
+Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const noexcept
 {
-    Matrix::SquareMatrix<double, N> A;
-    Matrix::Matrix<double, N, 1> B;
+    dynamic_matrix::SquareMatrix<double> A(N);
+    dynamic_matrix::Matrix<double> B(N, 1);
 
     for (auto i = 0ull; i < N; ++i)
     {
@@ -82,12 +74,11 @@ Result<N> Approximator::polynomial(Keys x, Values y) const noexcept
         });
     }
 
-    auto result = LinearSystemSolver()(A, B).column(0);
+    auto result = Solver()(A, B).column(0);
     return std::make_pair(result, approximateValues(result, x));
 }
 
-template<const std::size_t N>
-[[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients<N> &coeffs, Keys x) const noexcept
+[[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
 {
     ResultValues r;
     r.reserve(x.size());
@@ -96,7 +87,7 @@ template<const std::size_t N>
     {
         double sum = 0.0;
 
-        for (auto j = 0; j < N; ++j)
+        for (auto j = 0; j < coeffs.size(); ++j)
             sum += std::pow(x[i], j) * coeffs[j];
 
         r.push_back(sum);
