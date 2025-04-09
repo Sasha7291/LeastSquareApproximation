@@ -1,6 +1,6 @@
 #pragma once
 
-#include "squarematrix.hpp"
+#include "lsa_common.hpp"
 
 
 namespace lsa
@@ -15,6 +15,7 @@ public:
 
 class Solver
 {
+
 public:
     Solver() noexcept = default;
     ~Solver() noexcept = default;
@@ -25,17 +26,17 @@ public:
     Solver &operator=(Solver &&) = delete;
 
     template<NumberType T>
-    [[nodiscard]] dynamic_matrix::Matrix<T> operator()(
-        const dynamic_matrix::SquareMatrix<T> &A,
-        const dynamic_matrix::Matrix<T> &B
+    [[nodiscard]] UnknownColumn<T> operator()(
+        const CoefficientMatrix<T> &A,
+        const FreeMemberColumn<T> &B
     ) const;
 
 };
 
 template<NumberType T>
-dynamic_matrix::Matrix<T> Solver::operator()(
-    const dynamic_matrix::SquareMatrix<T> &A,
-    const dynamic_matrix::Matrix<T> &B
+UnknownColumn<T> Solver::operator()(
+    const CoefficientMatrix<T> &A,
+    const FreeMemberColumn<T> &B
 ) const
 {
     if (std::abs(A.determinant()) <= std::numeric_limits<T>::epsilon())

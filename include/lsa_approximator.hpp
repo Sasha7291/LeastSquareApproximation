@@ -2,18 +2,12 @@
 
 #include "lsa_solver.hpp"
 
+#include <algorithm>
 #include <numeric>
-#include <vector>
 
 
 namespace lsa
 {
-
-using Keys = std::span<const double>;
-using Values = std::span<const double>;
-using Coefficients = std::vector<double>;
-using ResultValues = std::vector<double>;
-using Result = std::pair<Coefficients, ResultValues>;
 
 class Approximator
 {
