@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lsa_solver.hpp"
+#include "lsa_statistics.hpp"
 
 #include <algorithm>
 #include <numeric>
@@ -34,12 +35,12 @@ Result Approximator::exponential(Keys x, Values y) const noexcept
 {
     auto minValue = *std::ranges::min_element(y);
     ResultValues tempY(y.size());
-    std::ranges::transform(y, tempY.begin(), [minValue](double value) -> double {
+    std::ranges::transform(y, tempY.begin(), [minValue](Type value) -> Type {
         return std::log(value - minValue + 0.001);
     });
     auto [coeffs, result] = linear(x, tempY);
 	coeffs[0] = std::exp(coeffs[0]);
-    std::ranges::transform(result, result.begin(), [minValue](double value) -> double {
+    std::ranges::transform(result, result.begin(), [minValue](Type value) -> Type {
         return std::exp(value) + minValue - 0.001;
 	});
 	
@@ -53,23 +54,26 @@ Result Approximator::linear(Keys x, Values y) const noexcept
 
 Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const noexcept
 {
-    dynamic_matrix::SquareMatrix<double> A(N);
-    dynamic_matrix::Matrix<double> B(N, 1);
+    Statistics statistics;
+    auto tempX = statistics.standardize(x);
+
+    dynamic_matrix::SquareMatrix<Type> A(N);
+    dynamic_matrix::Matrix<Type> B(N, 1);
 
     for (auto i = 0ull; i < N; ++i)
     {
-        for (auto j = 0ull; j < N; ++j)
-            A(i, j) = std::accumulate(x.begin(), x.end(), 0.0, [i, j](double total, double value) -> double {
+        for (auto j = i; j < N; ++j)
+            A(i, j) = A(j, i) = std::accumulate(tempX.cbegin(), tempX.cend(), 0.0, [i, j](Type total, Type value) -> Type {
                 return total + std::pow(value, i + j);
             });
 
-        B(i, 0) = std::transform_reduce(x.begin(), x.end(), y.begin(), 0.0, std::plus<>(), [i](double value1, double value2) -> double {
+        B(i, 0) = std::transform_reduce(tempX.cbegin(), tempX.cend(), y.cbegin(), 0.0, std::plus<>(), [i](Type value1, Type value2) -> Type {
             return std::pow(value1, i) * value2;
         });
     }
 
-    auto result = Solver()(A, B).column(0);
-    return std::make_pair(result, approximateValues(result, x));
+    auto coeffs = Solver()(A, B).column(0);
+    return std::make_pair(statistics.coefficientReverseStandardization(coeffs, x), approximateValues(coeffs, tempX));
 }
 
 [[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
@@ -79,7 +83,7 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const noe
 
     for (auto i = 0ull; i < x.size(); ++i)
     {
-        double sum = 0.0;
+        Type sum = 0.0;
 
         for (auto j = 0; j < coeffs.size(); ++j)
             sum += std::pow(x[i], j) * coeffs[j];

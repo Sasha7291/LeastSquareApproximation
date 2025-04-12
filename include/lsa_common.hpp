@@ -2,6 +2,16 @@
 
 #include "squarematrix.hpp"
 
+#define QT
+
+#ifdef QT
+#include <QSpan>
+#include <QVector>
+#else
+#include <span>
+#include <vector>
+#endif
+
 
 namespace lsa 
 {
@@ -13,10 +23,20 @@ using FreeMemberColumn = dynamic_matrix::Matrix<T>;
 template<NumberType T>
 using UnknownColumn = dynamic_matrix::Matrix<T>;
 
-using Keys = std::span<const double>;
-using Values = std::span<const double>;
-using Coefficients = std::vector<double>;
-using ResultValues = std::vector<double>;
+using Type = double;
+
+#ifdef QT
+using Keys = QSpan<const Type>;
+using Values = QSpan<const Type>;
+using Coefficients = QVector<Type>;
+using ResultValues = QVector<Type>;
+using Result = QPair<Coefficients, ResultValues>;
+#else
+using Keys = std::span<const Value>;
+using Values = std::span<const Value>;
+using Coefficients = std::vector<Value>;
+using ResultValues = std::vector<Value>;
 using Result = std::pair<Coefficients, ResultValues>;
+#endif
 
 }
