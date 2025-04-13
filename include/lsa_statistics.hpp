@@ -25,7 +25,7 @@ public:
     [[nodiscard]] ResultValues operator()(Keys x, Values y) const noexcept;
 
     [[nodiscard]] Type average(Keys data) const noexcept;
-    [[nodiscard]] ResultValues coefficientReverseStandardization(Keys coeffs, Keys data) const noexcept;
+    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept;
     [[nodiscard]] Type pearsonCoefficient(Keys x, Values y) const noexcept;
     [[nodiscard]] ResultValues rank(Keys data) const noexcept;
     [[nodiscard]] Type spearmanCoefficient(Keys x, Values y) const noexcept;
@@ -47,23 +47,23 @@ Type Statistics::average(Keys data) const noexcept
     return std::accumulate(data.cbegin(), data.cend(), 0.0) / data.size();
 }
 
-ResultValues Statistics::coefficientReverseStandardization(Keys coeffs, Keys data) const noexcept
+Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept
 {
     const auto aver = average(data);
     const auto var = variance(data);
     const auto n = coeffs.size();
-    ResultValues result(n, 0);
+    Coefficients result(n, 0);
 
     const std::function<int(int)> factorial = [&factorial](int k) -> int {
         return (k > 1) ? k * factorial(k - 1) : 1;
     };
-    const std::function<int(int, int)> binomialCoefficient = [&factorial](int k, int n) -> int {
+    const std::function<int(int, int)> binomialCoefficient = [&factorial](int n, int k) -> int {
         return factorial(n) / (factorial(k) * factorial(n - k));
     };
 
     for (unsigned i = 0; i < n; ++i)
         for (unsigned j = i; j < n; ++j)
-            result[i] += coeffs[j] * binomialCoefficient(i, j) * std::pow(-aver, j - i) / std::pow(var, j);
+            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-aver, j - i) / std::pow(var, j);
 
     return result;
 }

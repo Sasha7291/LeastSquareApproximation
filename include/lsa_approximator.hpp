@@ -72,8 +72,8 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const noe
         });
     }
 
-    auto coeffs = Solver()(A, B).column(0);
-    return std::make_pair(statistics.coefficientReverseStandardization(coeffs, x), approximateValues(coeffs, tempX));
+    auto coeffs = statistics.coefficientReverseStandardization(Solver()(A, B).column(0), x);
+    return std::make_pair(coeffs, approximateValues(coeffs, x));
 }
 
 [[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
