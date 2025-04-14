@@ -25,6 +25,14 @@ using UnknownColumn = dynamic_matrix::Matrix<T>;
 
 using Type = double;
 
+
+class Exception : public std::runtime_error
+{
+public:
+    Exception(const std::string &message) : std::runtime_error(message) {}
+};
+
+
 #ifdef QT
 using Keys = QSpan<const Type>;
 using Values = QSpan<const Type>;

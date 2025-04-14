@@ -5,13 +5,6 @@
 
 namespace lsa
 {
-	
-class Exception : std::runtime_error
-{
-public:
-    Exception(const std::string &message) : std::runtime_error(message) {}
-};
-
 
 class Solver
 {
@@ -26,7 +19,7 @@ public:
     Solver &operator=(Solver &&) = delete;
 
     template<NumberType T>
-    [[nodiscard]] UnknownColumn<T> operator()(
+    [[nodiscard]] std::optional<UnknownColumn<T>> operator()(
         const CoefficientMatrix<T> &A,
         const FreeMemberColumn<T> &B
     ) const;
@@ -34,15 +27,24 @@ public:
 };
 
 template<NumberType T>
-UnknownColumn<T> Solver::operator()(
+std::optional<UnknownColumn<T>> Solver::operator()(
     const CoefficientMatrix<T> &A,
     const FreeMemberColumn<T> &B
 ) const
 {
-    if (std::abs(A.determinant()) <= std::numeric_limits<T>::epsilon())
-        throw Exception("det(A) == 0, A is irreversible");
-
-    return A.inverted().toMatrix() * B;
+    try
+    {
+        return std::make_optional(A.inverted().toMatrix() * B);
+    }
+    catch (const dynamic_matrix::Exception &exception)
+    {
+#ifdef QT
+        qDebug() << exception.what();
+#else
+        std::cout << exception.what();
+#endif
+        return std::nullopt;
+    }
 }
 	
 }

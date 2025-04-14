@@ -25,11 +25,14 @@ public:
     [[nodiscard]] ResultValues operator()(Keys x, Values y) const noexcept;
 
     [[nodiscard]] Type average(Keys data) const noexcept;
+    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept;
     [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept;
     [[nodiscard]] Type pearsonCoefficient(Keys x, Values y) const noexcept;
     [[nodiscard]] ResultValues rank(Keys data) const noexcept;
     [[nodiscard]] Type spearmanCoefficient(Keys x, Values y) const noexcept;
+    [[nodiscard]] ResultValues standardize(Keys data, Type average, Type variance) const noexcept;
     [[nodiscard]] ResultValues standardize(Keys data) const noexcept;
+    [[nodiscard]] Type variance(Keys data, Type average) const noexcept;
     [[nodiscard]] Type variance(Keys data) const noexcept;
 	
 };
@@ -47,10 +50,8 @@ Type Statistics::average(Keys data) const noexcept
     return std::accumulate(data.cbegin(), data.cend(), 0.0) / data.size();
 }
 
-Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept
+Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept
 {
-    const auto aver = average(data);
-    const auto var = variance(data);
     const auto n = coeffs.size();
     Coefficients result(n, 0);
 
@@ -63,9 +64,15 @@ Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, 
 
     for (unsigned i = 0; i < n; ++i)
         for (unsigned j = i; j < n; ++j)
-            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-aver, j - i) / std::pow(var, j);
+            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(variance, j);
 
     return result;
+}
+
+Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept
+{
+    auto aver = average(data);
+    return coefficientReverseStandardization(coeffs, aver, variance(data, aver));
 }
 
 Type Statistics::pearsonCoefficient(Keys x, Values y) const noexcept
@@ -100,22 +107,33 @@ Type Statistics::spearmanCoefficient(Keys x, Values y) const noexcept
 	}) / (x.size() * (x.size() * x.size() - 1));
 }
 
-ResultValues Statistics::standardize(Keys data) const noexcept
+ResultValues Statistics::standardize(Keys data, Type average, Type variance) const noexcept
 {
     ResultValues result(data.size());
 
-    std::ranges::transform(data, result.begin(), [aver = average(data), var = variance(data)](Type value) -> Type {
-        return (value - aver) / var;
+    std::ranges::transform(data, result.begin(), [average, variance](Type value) -> Type {
+        return (value - average) / variance;
     });
 
     return result;
 }
 
+ResultValues Statistics::standardize(Keys data) const noexcept
+{
+    auto aver = average(data);
+    return standardize(data, aver, variance(data, aver));
+}
+
+Type Statistics::variance(Keys data, Type average) const noexcept
+{
+    return std::sqrt(std::transform_reduce(data.cbegin(), data.cend(), 0.0, std::plus<>(), [average](Type val) -> Type {
+        return (val - average) * (val - average);
+    }) / data.size());
+}
+
 Type Statistics::variance(Keys data) const noexcept
 {
-    return std::sqrt(std::transform_reduce(data.cbegin(), data.cend(), 0.0, std::plus<>(), [aver = average(data)](Type val) -> Type {
-		return (val - aver) * (val - aver);
-	}) / data.size());
+    return variance(data, average(data));
 }
 
 }
