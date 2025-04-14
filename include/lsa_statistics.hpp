@@ -1,8 +1,7 @@
 #pragma once
 
-#include "lsa_common.hpp"
+#include "lsa_arithmetic.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <numeric>
 
@@ -22,118 +21,94 @@ public:
     Statistics &operator=(const Statistics &) = delete;
     Statistics &operator=(Statistics &&) = delete;
 
-    [[nodiscard]] ResultValues operator()(Keys x, Values y) const noexcept;
+    [[nodiscard]] ResultValues operator()(Keys x, Values y, ResultValues yApp) const noexcept;
 
-    [[nodiscard]] Type average(Keys data) const noexcept;
     [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept;
     [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept;
+    [[nodiscard]] Type curveMaxDeflection(Values y1, Values y2) const noexcept;
+    [[nodiscard]] Type curveVariance(Keys x, Values y1, Values y2) const noexcept;
+    [[nodiscard]] Type pearsonCoefficient(Keys x, Values y, Type xAver, Type yAver, Type xVar, Type yVar) const noexcept;
     [[nodiscard]] Type pearsonCoefficient(Keys x, Values y) const noexcept;
-    [[nodiscard]] ResultValues rank(Keys data) const noexcept;
     [[nodiscard]] Type spearmanCoefficient(Keys x, Values y) const noexcept;
-    [[nodiscard]] ResultValues standardize(Keys data, Type average, Type variance) const noexcept;
-    [[nodiscard]] ResultValues standardize(Keys data) const noexcept;
-    [[nodiscard]] Type variance(Keys data, Type average) const noexcept;
-    [[nodiscard]] Type variance(Keys data) const noexcept;
 	
 };
 
-ResultValues Statistics::operator ()(Keys x, Values y) const noexcept
+ResultValues Statistics::operator ()(Keys x, Values y, ResultValues yApp) const noexcept
 {
     return {
         pearsonCoefficient(x, y),
-        spearmanCoefficient(x, y)
+        spearmanCoefficient(x, y),
+        curveVariance(x, y, yApp),
+        curveMaxDeflection(y, yApp)
     };
-}
-
-Type Statistics::average(Keys data) const noexcept
-{
-    return std::accumulate(data.cbegin(), data.cend(), 0.0) / data.size();
 }
 
 Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept
 {
+    Arithmetic arithmetic;
     const auto n = coeffs.size();
     Coefficients result(n, 0);
 
-    const std::function<int(int)> factorial = [&factorial](int k) -> int {
-        return (k > 1) ? k * factorial(k - 1) : 1;
-    };
-    const std::function<int(int, int)> binomialCoefficient = [&factorial](int n, int k) -> int {
-        return factorial(n) / (factorial(k) * factorial(n - k));
-    };
-
     for (unsigned i = 0; i < n; ++i)
         for (unsigned j = i; j < n; ++j)
-            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(variance, j);
+            result[i] += coeffs[j] * arithmetic.binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(variance, j);
 
     return result;
 }
 
 Coefficients Statistics::coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept
 {
-    auto aver = average(data);
-    return coefficientReverseStandardization(coeffs, aver, variance(data, aver));
+    Arithmetic arithmetic;
+    auto aver = arithmetic.average(data);
+    return coefficientReverseStandardization(coeffs, aver, arithmetic.variance(data, aver));
+}
+
+Type Statistics::curveMaxDeflection(Values y1, Values y2) const noexcept
+{
+    ResultValues diff(y1.size());
+
+    std::transform(y1.cbegin(), y1.cend(), y2.cbegin(), diff.begin(), [](Type val1, Type val2) -> Type {
+        return std::abs(val1 - val2);
+    });
+
+    return *std::ranges::max_element(diff);
+}
+
+Type Statistics::curveVariance(Keys x, Values y1, Values y2) const noexcept
+{
+    ResultValues diff(y1.size());
+
+    std::transform(y1.cbegin(), y1.cend(), y2.cbegin(), diff.begin(), [](Type val1, Type val2) -> Type {
+        return (val1 - val2) * (val1 - val2);
+    });
+
+    return std::sqrt(Arithmetic{}.integrate(x, diff) / (x.back() - x.front()));
+}
+
+Type Statistics::pearsonCoefficient(Keys x, Values y, Type xAver, Type yAver, Type xVar, Type yVar) const noexcept
+{
+    return std::transform_reduce(x.cbegin(), x.cend(), y.cbegin(), 0.0, std::plus<>(), [xAver, yAver](Type val1, Type val2) -> Type {
+        return (val1 - xAver) * (val2 - yAver);
+    }) / (x.size() * xVar * yVar);
 }
 
 Type Statistics::pearsonCoefficient(Keys x, Values y) const noexcept
 {
-    return std::transform_reduce(x.cbegin(), x.cend(), y.cbegin(), 0.0, std::plus<>(), [xAverage = average(x), yAverage = average(y)](Type val1, Type val2) -> Type {
-		return (val1 - xAverage) * (val2 - yAverage);
-    }) / (x.size() * variance(x) * variance(y));
-}
-
-ResultValues Statistics::rank(Keys data) const noexcept
-{
-    ResultValues rankData(data.size());
-	auto min = *std::ranges::min_element(data);
-	
-    for (auto i = 0ull; i < data.size(); ++i)
-	{
-        auto minIter = std::ranges::lower_bound(data, min);
-		min = *minIter;
-        rankData[minIter - data.begin()] = i;
-	}
-	
-	return rankData;
+    Arithmetic arithmetic;
+    auto xAver = arithmetic.average(x);
+    auto yAver = arithmetic.average(y);
+    return pearsonCoefficient(x, y, xAver, yAver, arithmetic.variance(x, xAver), arithmetic.variance(y, yAver));
 }
 
 Type Statistics::spearmanCoefficient(Keys x, Values y) const noexcept
 {
-    auto rankX = rank(x);
-    auto rankY = rank(y);
+    Arithmetic arithmetic;
+    auto rankX = arithmetic.rank(x);
+    auto rankY = arithmetic.rank(y);
 
     return 1.0 - 6.0 * std::transform_reduce(rankX.cbegin(), rankX.cend(), rankY.cbegin(), 0.0, std::plus<>(), [](Type rank1, Type rank2) -> Type {
 		return (rank1 - rank2) * (rank1 - rank2);
 	}) / (x.size() * (x.size() * x.size() - 1));
-}
-
-ResultValues Statistics::standardize(Keys data, Type average, Type variance) const noexcept
-{
-    ResultValues result(data.size());
-
-    std::ranges::transform(data, result.begin(), [average, variance](Type value) -> Type {
-        return (value - average) / variance;
-    });
-
-    return result;
-}
-
-ResultValues Statistics::standardize(Keys data) const noexcept
-{
-    auto aver = average(data);
-    return standardize(data, aver, variance(data, aver));
-}
-
-Type Statistics::variance(Keys data, Type average) const noexcept
-{
-    return std::sqrt(std::transform_reduce(data.cbegin(), data.cend(), 0.0, std::plus<>(), [average](Type val) -> Type {
-        return (val - average) * (val - average);
-    }) / data.size());
-}
-
-Type Statistics::variance(Keys data) const noexcept
-{
-    return variance(data, average(data));
 }
 
 }

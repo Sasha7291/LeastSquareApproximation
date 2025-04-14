@@ -69,19 +69,17 @@ Result Approximator::linear(Keys x, Values y) const
 
 Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
 {
-    Statistics statistics;
-    auto aver = statistics.average(x);
-    auto var = statistics.variance(x, aver);
-    auto tempX = statistics.standardize(x, aver, var);
+    Arithmetic arithmetic;
+    auto aver = arithmetic.average(x);
+    auto var = arithmetic.variance(x, aver);
+    auto tempX = arithmetic.standardize(x, aver, var);
 
     dynamic_matrix::SquareMatrix<Type> A(N);
     dynamic_matrix::Matrix<Type> B(N, 1);
 
     ResultValues sums(2 * N - 1);
     for (auto i = 0ull; i < sums.size(); ++i)
-        sums[i] = std::accumulate(tempX.cbegin(), tempX.cend(), 0.0, [i](Type total, Type value) -> Type {
-            return total + std::pow(value, i);
-        });
+        sums[i] = arithmetic.powerArray(tempX, i);
 
     for (auto i = 0ull; i < N; ++i)
     {
@@ -97,7 +95,7 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
     if (!unknownColumn.has_value())
         throw Exception("Coefficients matrix is irreversible");
 
-    auto coeffs = statistics.coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
+    auto coeffs = Statistics{}.coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
     return std::make_pair(coeffs, approximateValues(coeffs, x));
 }
 
