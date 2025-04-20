@@ -2,8 +2,6 @@
 
 #include "squarematrix.hpp"
 
-#define QT
-
 #ifdef QT
 #include <QSpan>
 #include <QVector>

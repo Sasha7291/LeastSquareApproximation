@@ -1,9 +1,10 @@
 #pragma once
 
 #include "lsa_solver.hpp"
-#include "lsa_statistics.hpp"
+#include "psr_average.h"
+#include "psr_standartize.h"
+#include "psr_variance.h"
 
-#include <algorithm>
 #include <numeric>
 
 
@@ -22,38 +23,17 @@ public:
     Approximator &operator=(const Approximator &) = delete;
     Approximator &operator=(Approximator &&) = delete;
 
-    [[nodiscard]] Result exponential(Keys x, Values y) const;
     [[nodiscard]] Result linear(Keys x, Values y) const;
     [[nodiscard]] Result polynomial(Keys x, Values y, const std::size_t N) const ;
 	
 private:
     [[nodiscard]] ResultValues approximateValues(const Coefficients &coeffs, Keys x) const noexcept;
+    [[nodiscard]] constexpr unsigned binomialCoefficient(unsigned n, unsigned k) const noexcept;
+    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept;
+    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept;
+    [[nodiscard]] constexpr unsigned factorial(unsigned n) const noexcept;
 
 };
-
-Result Approximator::exponential(Keys x, Values y) const
-{
-    auto minValue = *std::ranges::min_element(y);
-    ResultValues tempY(y.size());
-    std::ranges::transform(y, tempY.begin(), [minValue](Type value) -> Type {
-        return std::log(value - minValue + 0.001);
-    });
-
-    try
-    {
-        auto [coeffs, result] = linear(x, tempY);
-        coeffs[0] = std::exp(coeffs[0]);
-        std::ranges::transform(result, result.begin(), [minValue](Type value) -> Type {
-            return std::exp(value) + minValue - 0.001;
-        });
-
-        return std::make_pair(coeffs, result);
-    }
-    catch (const Exception &exception)
-    {
-        throw exception;
-    }
-}
 
 Result Approximator::linear(Keys x, Values y) const
 {
@@ -69,17 +49,18 @@ Result Approximator::linear(Keys x, Values y) const
 
 Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
 {
-    Arithmetic arithmetic;
-    auto aver = arithmetic.average(x);
-    auto var = arithmetic.variance(x, aver);
-    auto tempX = arithmetic.standardize(x, aver, var);
+    auto aver = psr::Average<double>{}(x);
+    auto var = psr::Variance<double>{aver}(x);
+    auto tempX = psr::Standartize<double>{aver, var}(x);
 
     dynamic_matrix::SquareMatrix<Type> A(N);
     dynamic_matrix::Matrix<Type> B(N, 1);
 
     ResultValues sums(2 * N - 1);
     for (auto i = 0ull; i < sums.size(); ++i)
-        sums[i] = arithmetic.powerArray(tempX, i);
+        sums[i] = std::accumulate(tempX.cbegin(), tempX.cend(), 0.0, [i](Type total, Type value) -> Type {
+            return total + std::pow(value, i);
+        });
 
     for (auto i = 0ull; i < N; ++i)
     {
@@ -95,11 +76,11 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
     if (!unknownColumn.has_value())
         throw Exception("Coefficients matrix is irreversible");
 
-    auto coeffs = Statistics{}.coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
+    auto coeffs = coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
     return std::make_pair(coeffs, approximateValues(coeffs, x));
 }
 
-[[nodiscard]] ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
+ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
 {
     ResultValues r(x.size(), static_cast<double>(0));
     r.reserve(x.size());
@@ -109,6 +90,34 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
             r[i] += std::pow(x[i], j) * coeffs[j];
 	
 	return r;
+}
+
+constexpr unsigned Approximator::binomialCoefficient(unsigned n, unsigned k) const noexcept
+{
+    return factorial(n) / (factorial(k) * factorial(n - k));
+}
+
+constexpr unsigned Approximator::factorial(unsigned n) const noexcept
+{
+    return (n > 1) ? n * factorial(n - 1) : 1;
+}
+
+Coefficients Approximator::coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept
+{
+    const auto n = coeffs.size();
+    Coefficients result(n, 0);
+
+    for (unsigned i = 0; i < n; ++i)
+        for (unsigned j = i; j < n; ++j)
+            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(variance, j);
+
+    return result;
+}
+
+Coefficients Approximator::coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept
+{
+    auto aver = psr::Average<double>{}(data);
+    return coefficientReverseStandardization(coeffs, aver, psr::Variance<double>{aver}(data));
 }
 
 }
