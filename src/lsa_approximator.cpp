@@ -1,39 +1,8 @@
-#pragma once
-
-#include "lsa_solver.hpp"
-#include "psr_average.h"
-#include "psr_standartize.h"
-#include "psr_variance.h"
-
-#include <numeric>
+#include "lsa_approximator.h"
 
 
 namespace lsa
 {
-
-class Approximator
-{
-
-public:
-    Approximator() noexcept = default;
-    ~Approximator() noexcept = default;
-
-    Approximator(const Approximator &) = delete;
-    Approximator(Approximator &&) = delete;
-    Approximator &operator=(const Approximator &) = delete;
-    Approximator &operator=(Approximator &&) = delete;
-
-    [[nodiscard]] Result linear(Keys x, Values y) const;
-    [[nodiscard]] Result polynomial(Keys x, Values y, const std::size_t N) const ;
-	
-private:
-    [[nodiscard]] ResultValues approximateValues(const Coefficients &coeffs, Keys x) const noexcept;
-    [[nodiscard]] constexpr unsigned binomialCoefficient(unsigned n, unsigned k) const noexcept;
-    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const noexcept;
-    [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Keys data) const noexcept;
-    [[nodiscard]] constexpr unsigned factorial(unsigned n) const noexcept;
-
-};
 
 Result Approximator::linear(Keys x, Values y) const
 {
@@ -76,20 +45,7 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
     if (!unknownColumn.has_value())
         throw Exception("Coefficients matrix is irreversible");
 
-    auto coeffs = coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
-    return std::make_pair(coeffs, approximateValues(coeffs, x));
-}
-
-ResultValues Approximator::approximateValues(const Coefficients &coeffs, Keys x) const noexcept
-{
-    ResultValues r(x.size(), static_cast<double>(0));
-    r.reserve(x.size());
-
-    for (auto i = 0ull; i < x.size(); ++i)
-        for (auto j = 0; j < coeffs.size(); ++j)
-            r[i] += std::pow(x[i], j) * coeffs[j];
-	
-	return r;
+    return coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
 }
 
 constexpr unsigned Approximator::binomialCoefficient(unsigned n, unsigned k) const noexcept

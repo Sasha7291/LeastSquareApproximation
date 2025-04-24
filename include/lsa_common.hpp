@@ -10,6 +10,8 @@
 #include <vector>
 #endif
 
+#include <optional>
+
 
 namespace lsa 
 {
@@ -36,13 +38,12 @@ using Keys = QSpan<const Type>;
 using Values = QSpan<const Type>;
 using Coefficients = QVector<Type>;
 using ResultValues = QVector<Type>;
-using Result = QPair<Coefficients, ResultValues>;
+using Result = Coefficients;
 #else
-using Keys = std::span<const Value>;
-using Values = std::span<const Value>;
-using Coefficients = std::vector<Value>;
-using ResultValues = std::vector<Value>;
+using Keys = std::span<const Type>;
+using Values = std::span<const Type>;
+using Coefficients = std::vector<Type>;
+using ResultValues = std::vector<Type>;
 using Result = std::pair<Coefficients, ResultValues>;
 #endif
-
 }

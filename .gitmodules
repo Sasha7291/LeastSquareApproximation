@@ -1,0 +1,6 @@
+[submodule "lib/dynamic_matrix"]
+	path = lib/dynamic_matrix
+	url = https://github.com/Sasha7291/DynamicMatrix.git
+[submodule "lib/psr"]
+	path = lib/psr
+	url = https://github.com/Sasha7291/DataProcessor.git
