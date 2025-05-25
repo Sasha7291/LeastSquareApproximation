@@ -10,13 +10,13 @@ Result Approximator::linear(Keys x, Values y) const
     {
         return polynomial(x, y, 2ull);
     }
-    catch (const Exception &exception)
+    catch (const Exception &)
     {
-        throw exception;
+        throw;
     }
 }
 
-Result Approximator::plane(Keys x, Keys y, Values z) const
+Result Approximator::linear(Keys x, Keys y, Values z) const
 {
     auto averX = psr::Average<double>{}(x);
     auto averY = psr::Average<double>{}(y);
@@ -60,11 +60,11 @@ Result Approximator::polynomial(Keys x, Values y, const std::size_t N) const
     auto var = psr::Variance<double>{aver}(x);
     auto tempX = psr::Standartize<double>{aver, var}(x);
 
-    dynamic_matrix::SquareMatrix<Type> A(N);
-    dynamic_matrix::Matrix<Type> B(N, 1);
+    dynamic_matrix::SquareMatrix<Type> A{N};
+    dynamic_matrix::Matrix<Type> B{N, 1};
 
     ResultValues sums(2 * N - 1);
-    for (auto i = 0ull; i < sums.size(); ++i)
+    for (qsizetype i = 0ll; i < sums.size(); ++i)
         sums[i] = std::accumulate(tempX.cbegin(), tempX.cend(), static_cast<Type>(0), [i](Type total, Type value) -> Type {
             return total + std::pow(value, i);
         });

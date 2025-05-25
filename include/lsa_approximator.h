@@ -25,9 +25,9 @@ public:
     Approximator &operator=(Approximator &&) = delete;
 
     [[nodiscard]] Result linear(Keys x, Values y) const;
-    [[nodiscard]] Result plane(Keys x, Keys y, Values z) const;
+    [[nodiscard]] Result linear(Keys x, Keys y, Values z) const;
     [[nodiscard]] Result polynomial(Keys x, Values y, const std::size_t N) const;
-	
+
 private:
     [[nodiscard]] constexpr unsigned binomialCoefficient(unsigned n, unsigned k) const;
     [[nodiscard]] Coefficients coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const;
