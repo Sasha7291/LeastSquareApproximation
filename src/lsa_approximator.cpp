@@ -165,7 +165,7 @@ Coefficients Approximator::coefficientReverseStandardization(
 {
     Coefficients result(coeffs.size(), 0.0);
 
-    for (size_t k = 0; k < coeffs.size(); ++k)
+    for (std::size_t k = 0; k < coeffs.size(); ++k)
     {
         const auto [p, q] = degreeToIndicies(k);
         double factor = varianceZ / (std::pow(varianceX, p) * std::pow(varianceY, q));
