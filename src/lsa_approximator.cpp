@@ -24,43 +24,9 @@ Result Approximator::linear(Keys x, Values y) const
 
 Result Approximator::linear(Keys x, Keys y, Values z) const
 {
-    // auto averX = psr::Average<double>{}(x);
-    // auto averY = psr::Average<double>{}(y);
-    // auto averZ = psr::Average<double>{}(z);
-    // auto varX = psr::Variance<double>{averX}(x);
-    // auto varY = psr::Variance<double>{averY}(y);
-    // auto varZ = psr::Variance<double>{averZ}(z);
-    // auto tempX = psr::Standartize<double>{averX, varX}(x);
-    // auto tempY = psr::Standartize<double>{averY, varY}(y);
-    // auto tempZ = psr::Standartize<double>{averZ, varZ}(z);
-
-    // dynamic_matrix::SquareMatrix<Type> A(2);
-    // dynamic_matrix::Matrix<Type> B(2, 1);
-
-    // std::function<double(Keys, Keys)> crossedSum = [](Keys keys1, Keys keys2) -> double {
-    //     return std::transform_reduce(keys1.cbegin(), keys1.cend(), keys2.cbegin(), static_cast<Type>(0), std::plus<>(), [](Type value1, Type value2) -> Type {
-    //         return value1 * value2;
-    //     });
-    // };
-
-    // A(0, 0) = crossedSum(tempX, tempX);
-    // A(0, 1) = A(1, 0) = crossedSum(tempX, tempY);
-    // A(1, 1) = crossedSum(tempY, tempY);
-    // B(0, 0) = crossedSum(tempX, tempZ);
-    // B(0, 0) = crossedSum(tempY, tempZ);
-
-    // auto unknownColumn = Solver()(A, B);
-    // if (!unknownColumn.has_value())
-    //     throw Exception("Coefficients matrix is irreversible");
-
-    // return {
-    //     averZ - unknownColumn.value()(0, 0) * varZ * averX / varX - unknownColumn.value()(1, 0) * varZ * averY / varY,
-    //     unknownColumn.value()(0, 0) * varZ / varX,
-    //     unknownColumn.value()(1, 0) * varZ / varY
-    // };
     try
     {
-        return polynomial(x, y, z, 2);
+        return polynomial(x, y, z, 2ull);
     }
     catch (const Exception &)
     {
@@ -93,7 +59,7 @@ Result Approximator::polynomial(Keys x, Values y, std::size_t N) const
         });
     }
 
-    auto unknownColumn = Solver()(A, B);
+    auto unknownColumn = Solver{}(A, B);
     if (!unknownColumn.has_value())
         throw Exception("Coefficients matrix is irreversible");
 
@@ -125,11 +91,10 @@ Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t N) const
 
         double sum = 0.0;
         for (std::size_t k = 0ull; k < N; ++k)
-            sum += tempZ[k] + monomial(i, tempX[k], tempY[k]);
-        B(i, 0) = sum;
+            sum += tempZ[k] * monomial(i, tempX[k], tempY[k]);
     }
 
-    auto unknownColumn = Solver()(A, B);
+    auto unknownColumn = Solver{}(A, B);
     if (!unknownColumn.has_value())
         throw Exception("Coefficients matrix is irreversible");
 
@@ -194,7 +159,7 @@ std::pair<std::size_t, std::size_t> Approximator::degreeToIndicies(std::size_t n
     while ((m + 1) * (m + 2) / 2 <= n)
         ++m;
 
-    std::size_t p = n - m * (m + 1) / 2 - 1;
+    std::size_t p = n - m * (m + 1) / 2;
     std::size_t q = m - p;
 
     return std::make_pair(p, q);

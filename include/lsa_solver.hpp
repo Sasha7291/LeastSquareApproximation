@@ -10,8 +10,8 @@ class Solver
 {
 
 public:
-    Solver() noexcept = default;
-    ~Solver() noexcept = default;
+    Solver() = default;
+    ~Solver() = default;
 
     Solver(const Solver &) = delete;
     Solver(Solver &&) = delete;
