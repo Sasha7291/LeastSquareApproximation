@@ -4,6 +4,7 @@
 #include "psr_standartize.h"
 #include "psr_variance.h"
 
+#include <execution>
 #include <numeric>
 
 
@@ -36,9 +37,9 @@ Result Approximator::linear(Keys x, Keys y, Values z) const
 
 Result Approximator::polynomial(Keys x, Values y, std::size_t N) const
 {
-    auto aver = psr::Average<double>{}(x);
-    auto var = psr::Variance<double>{aver}(x);
-    auto tempX = psr::Standartize<double>{aver, var}(x);
+    auto aver = psr::Average<Type>{}(x);
+    auto var = psr::Variance<Type>{aver}(x);
+    auto tempX = psr::Standartize<Type>{aver, var}(x);
 
     dynamic_matrix::SquareMatrix<Type> A{N};
     dynamic_matrix::Matrix<Type> B{N, 1};
@@ -61,42 +62,59 @@ Result Approximator::polynomial(Keys x, Values y, std::size_t N) const
 
     auto unknownColumn = Solver{}(A, B);
     if (!unknownColumn.has_value())
-        throw Exception("Coefficients matrix is irreversible");
+        throw Exception{"Coefficients matrix is irreversible"};
 
     return coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
 }
 
 Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t N) const
 {
-    auto averX = psr::Average<double>{}(x);
-    auto varX = psr::Variance<double>{averX}(x);
-    auto tempX = psr::Standartize<double>{averX, varX}(x);
-    auto averY = psr::Average<double>{}(y);
-    auto varY = psr::Variance<double>{averY}(y);
-    auto tempY = psr::Standartize<double>{averY, varY}(y);
-    auto averZ = psr::Average<double>{}(z);
-    auto varZ = psr::Variance<double>{averZ}(z);
-    auto tempZ = psr::Standartize<double>{averZ, varZ}(z);
+    auto averX = psr::Average<Type>{}(x);
+    auto varX = psr::Variance<Type>{averX}(x);
+    auto tempX = psr::Standartize<Type>{averX, varX}(x);
+    auto averY = psr::Average<Type>{}(y);
+    auto varY = psr::Variance<Type>{averY}(y);
+    auto tempY = psr::Standartize<Type>{averY, varY}(y);
+    auto averZ = psr::Average<Type>{}(z);
+    auto varZ = psr::Variance<Type>{averZ}(z);
+    auto tempZ = psr::Standartize<Type>{averZ, varZ}(z);
 
     N = N * (N + 1) / 2;
-    dynamic_matrix::SquareMatrix<double> A{N};
-    dynamic_matrix::Matrix<double> B{N, 1};
+    dynamic_matrix::SquareMatrix<Type> A{N};
+    dynamic_matrix::Matrix<Type> B{N, 1};
 
+    QList<QList<double>> monomials(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        monomials[i].reserve(x.size());
+
+        for (std::size_t j = 0; j < x.size(); ++j)
+            monomials[i].push_back(monomial(i, x[j], y[j]));
+    }
+
+    auto seq_policy = (tempZ.size() < 1000);
     for (std::size_t i = 0ull; i < N; ++i)
     {
-        for (std::size_t j = 0ull; j < N; ++j)
-            A(i, j) = A(j, i) = std::transform_reduce(tempX.cbegin(), tempX.cend(), tempY.cbegin(), 0.0, std::plus<>(), [this, i, j](double value1, double value2) -> double {
-                return monomial(i, value1, value2) * monomial(j, value1, value2);
-            });
+        if (seq_policy)
+            for (std::size_t j = i; j < N; ++j)
+                A(i, j) = A(j, i) = std::transform_reduce(std::execution::seq, monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), 0.0, std::plus<>(), [](double value1, double value2) -> double {
+                    return value1 * value2;
+                });
+        else
+            for (std::size_t j = i; j < N; ++j)
+                A(i, j) = A(j, i) = std::transform_reduce(std::execution::par_unseq, monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), 0.0, std::plus<>(), [](double value1, double value2) -> double {
+                    return value1 * value2;
+                });
 
         double sum = 0.0;
         for (std::size_t k = 0ull; k < N; ++k)
-            sum += tempZ[k] * monomial(i, tempX[k], tempY[k]);
+            sum += tempZ[k] * monomials[i][k];
+        B(i, 0) = sum;
     }
 
     auto unknownColumn = Solver{}(A, B);
     if (!unknownColumn.has_value())
-        throw Exception("Coefficients matrix is irreversible");
+        throw Exception{"Coefficients matrix is irreversible"};
 
     return coefficientReverseStandardization(unknownColumn.value().column(0), averX, varX, averY, varY, averZ, varZ);
 }
