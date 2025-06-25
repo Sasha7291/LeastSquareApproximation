@@ -6,7 +6,6 @@
 #include "psr_standartize.h"
 #include "psr_variance.h"
 
-#include <execution>
 #include <numeric>
 
 
