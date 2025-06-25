@@ -1,5 +1,7 @@
 #include "lsa_approximator.h"
 
+#include "lsa_solver.hpp"
+
 #include "psr_average.h"
 #include "psr_standartize.h"
 #include "psr_variance.h"
@@ -86,25 +88,18 @@ Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t N) const
     QList<QList<double>> monomials(N);
     for (std::size_t i = 0; i < N; ++i)
     {
-        monomials[i].reserve(x.size());
+        monomials[i].reserve(tempX.size());
 
-        for (std::size_t j = 0; j < x.size(); ++j)
-            monomials[i].push_back(monomial(i, x[j], y[j]));
+        for (std::size_t j = 0; j < tempX.size(); ++j)
+            monomials[i].push_back(monomial(i, tempX[j], tempY[j]));
     }
 
-    auto seq_policy = (tempZ.size() < 1000);
     for (std::size_t i = 0ull; i < N; ++i)
     {
-        if (seq_policy)
-            for (std::size_t j = i; j < N; ++j)
-                A(i, j) = A(j, i) = std::transform_reduce(std::execution::seq, monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), 0.0, std::plus<>(), [](double value1, double value2) -> double {
-                    return value1 * value2;
-                });
-        else
-            for (std::size_t j = i; j < N; ++j)
-                A(i, j) = A(j, i) = std::transform_reduce(std::execution::par_unseq, monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), 0.0, std::plus<>(), [](double value1, double value2) -> double {
-                    return value1 * value2;
-                });
+        for (std::size_t j = i; j < N; ++j)
+            A(i, j) = A(j, i) = std::transform_reduce(monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), static_cast<Type>(0), std::plus<>(), [](double value1, double value2) -> double {
+                return value1 * value2;
+            });
 
         double sum = 0.0;
         for (std::size_t k = 0ull; k < N; ++k)

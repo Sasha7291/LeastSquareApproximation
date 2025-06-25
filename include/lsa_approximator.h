@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lsa_solver.hpp"
+#include "lsa_common.hpp"
 
 
 namespace lsa
