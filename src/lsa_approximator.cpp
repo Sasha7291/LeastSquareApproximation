@@ -89,7 +89,7 @@ Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t N) const
     {
         monomials[i].reserve(tempX.size());
 
-        for (std::size_t j = 0; j < tempX.size(); ++j)
+        for (decltype(tempX.size()) j = 0; j < tempX.size(); ++j)
             monomials[i].push_back(monomial(i, tempX[j], tempY[j]));
     }
 
@@ -142,7 +142,7 @@ Coefficients Approximator::coefficientReverseStandardization(
 {
     Coefficients result(coeffs.size(), 0.0);
 
-    for (std::size_t k = 0; k < coeffs.size(); ++k)
+    for (decltype(coeffs.size()) k = 0; k < coeffs.size(); ++k)
     {
         const auto [p, q] = degreeToIndicies(k);
         double factor = varianceZ / (std::pow(varianceX, p) * std::pow(varianceY, q));
