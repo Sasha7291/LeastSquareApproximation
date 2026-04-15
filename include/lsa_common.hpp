@@ -44,6 +44,6 @@ using Keys = std::span<const Type>;
 using Values = std::span<const Type>;
 using Coefficients = std::vector<Type>;
 using ResultValues = std::vector<Type>;
-using Result = std::pair<Coefficients, ResultValues>;
+using Result = Coefficients;
 #endif
 }

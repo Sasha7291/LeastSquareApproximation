@@ -68,49 +68,80 @@ Result Approximator::polynomial(Keys x, Values y, std::size_t N) const
     return coefficientReverseStandardization(unknownColumn.value().column(0), aver, var);
 }
 
-Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t N) const
+Result Approximator::polynomial(Keys x, Keys y, Values z, std::size_t degree) const
 {
-    auto averX = psr::Average<Type>{}(x);
-    auto varX = psr::Variance<Type>{averX}(x);
-    auto tempX = psr::Standartize<Type>{averX, varX}(x);
-    auto averY = psr::Average<Type>{}(y);
-    auto varY = psr::Variance<Type>{averY}(y);
-    auto tempY = psr::Standartize<Type>{averY, varY}(y);
-    auto averZ = psr::Average<Type>{}(z);
-    auto varZ = psr::Variance<Type>{averZ}(z);
-    auto tempZ = psr::Standartize<Type>{averZ, varZ}(z);
+    const auto n = x.size();
 
-    N = N * (N + 1) / 2;
-    dynamic_matrix::SquareMatrix<Type> A{N};
-    dynamic_matrix::Matrix<Type> B{N, 1};
+    if (n < 3)
+        throw Exception{"At least 3 points required"};
 
-    QList<QList<double>> monomials(N);
-    for (std::size_t i = 0; i < N; ++i)
+    const Type mx = psr::Average<Type>{}(x);
+    const Type my = psr::Average<Type>{}(y);
+    const Type sx = std::sqrt(psr::Variance<Type>{mx}(x));
+    const Type sy = std::sqrt(psr::Variance<Type>{my}(y));
+
+    if (sx < 1e-9 || sy < 1e-9)
+        throw Exception{"Variance too small"};
+
+    Type S[3][4] = {{0}};
+
+    S[0][0] = n;
+
+    for (std::size_t i = 0; i < n; ++i)
     {
-        monomials[i].reserve(tempX.size());
+        const Type ys = (y[i] - my) / sy;
+        const Type xs = (x[i] - mx) / sx;
 
-        for (decltype(tempX.size()) j = 0; j < tempX.size(); ++j)
-            monomials[i].push_back(monomial(i, tempX[j], tempY[j]));
+        S[0][1] += ys;
+        S[0][2] += xs;
+        S[0][3] += z[i];
+        S[1][1] += ys * ys;
+        S[1][2] += ys * xs;
+        S[1][3] += ys * z[i];
+        S[2][1] += xs * ys;
+        S[2][2] += xs * xs;
+        S[2][3] += xs * z[i];
     }
 
-    for (std::size_t i = 0ull; i < N; ++i)
-    {
-        for (std::size_t j = i; j < N; ++j)
-            A(i, j) = A(j, i) = std::transform_reduce(monomials[i].cbegin(), monomials[i].cend(), monomials[j].cbegin(), static_cast<Type>(0), std::plus<>(), [](double value1, double value2) -> double {
-                return value1 * value2;
-            });
+    S[1][0] = S[0][1];
+    S[2][0] = S[0][2];
+    S[2][1] = S[1][2];
 
-        double sum = 0.0;
-        for (std::size_t k = 0ull; k < N; ++k)
-            sum += tempZ[k] * monomials[i][k];
-        B(i, 0) = sum;
+    for (std::size_t col = 0; col < 3; ++col)
+    {
+        std::size_t pivot = col;
+
+        for (std::size_t row = col + 1; row < 3; ++row)
+            if (std::abs(S[row][col]) > std::abs(S[pivot][col]))
+                pivot = row;
+
+        std::swap(S[col], S[pivot]);
+
+        if (std::abs(S[col][col]) < 1e-12)
+            throw Exception{"Singular matrix"};
+
+        const Type div = S[col][col];
+
+        for (std::size_t j = col; j < 4; ++j)
+            S[col][j] /= div;
+
+        for (std::size_t row = 0; row < 3; ++row)
+        {
+            if (row == col)
+                continue;
+
+            const Type f = S[row][col];
+
+            for (std::size_t j = col; j < 4; ++j)
+                S[row][j] -= f * S[col][j];
+        }
     }
 
-    auto unknownColumn = Solver{}(A, B);
-    if (!unknownColumn.has_value())
-        throw Exception{"Coefficients matrix is irreversible"};
-
-    return coefficientReverseStandardization(unknownColumn.value().column(0), averX, varX, averY, varY, averZ, varZ);
+    return {
+        S[0][3] - S[1][3] * (my / sy) - S[2][3] * (mx / sx),
+        S[1][3] / sy,
+        S[2][3] / sx
+    };
 }
 
 constexpr std::size_t Approximator::binomialCoefficient(std::size_t n, std::size_t k) const
@@ -121,11 +152,12 @@ constexpr std::size_t Approximator::binomialCoefficient(std::size_t n, std::size
 Coefficients Approximator::coefficientReverseStandardization(Coefficients coeffs, Type average, Type variance) const
 {
     const auto n = coeffs.size();
+    const auto sigma = std::sqrt(variance);
     Coefficients result(n, 0);
 
     for (unsigned i = 0; i < n; ++i)
         for (unsigned j = i; j < n; ++j)
-            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(variance, j);
+            result[i] += coeffs[j] * binomialCoefficient(j, i) * std::pow(-average, j - i) / std::pow(sigma, j);
 
     return result;
 }
@@ -135,17 +167,18 @@ Coefficients Approximator::coefficientReverseStandardization(
     Type averageX,
     Type varianceX,
     Type averageY,
-    Type varianceY,
-    Type averageZ,
-    Type varianceZ
+    Type varianceY
 ) const
 {
     Coefficients result(coeffs.size(), 0.0);
+    const auto sigmaX = std::sqrt(varianceX);
+    const auto sigmaY = std::sqrt(varianceY);
 
     for (decltype(coeffs.size()) k = 0; k < coeffs.size(); ++k)
     {
         const auto [p, q] = degreeToIndicies(k);
-        double factor = varianceZ / (std::pow(varianceX, p) * std::pow(varianceY, q));
+
+        double factor = 1.0 / (std::pow(sigmaX, p) * std::pow(sigmaY, q));
 
         for (std::size_t i = 0; i <= p; ++i)
             for (std::size_t j = 0; j <= q; ++j)
@@ -155,7 +188,6 @@ Coefficients Approximator::coefficientReverseStandardization(
                     * pow(-averageX, p - i) * pow(-averageY, q - j);
     }
 
-    result[0] += averageZ;
     return result;
 }
 

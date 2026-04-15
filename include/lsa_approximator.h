@@ -31,9 +31,7 @@ private:
         Type averageX,
         Type varianceX,
         Type averageY,
-        Type varianceY,
-        Type averageZ,
-        Type varianceZ
+        Type varianceY
     ) const;
     [[nodiscard]] constexpr double monomial(std::size_t n, double x, double y) const;
     [[nodiscard]] std::pair<std::size_t, std::size_t> degreeToIndicies(std::size_t n) const;
